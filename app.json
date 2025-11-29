@@ -1,4 +1,59 @@
 {
-  "name": "CourtCrowdClean",
-  "displayName": "CourtCrowdClean"
+  "expo": {
+    "name": "Court Crowd",
+    "slug": "court-crowd",
+    "owner": "universoleappstudios",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "courtcrowd",
+    "userInterfaceStyle": "dark",
+    "newArchEnabled": true,
+    "ios": {
+      "bundleIdentifier": "com.courtcrowdclean",
+      "supportsTablet": false,
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Show courts near you",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Notify when friends arrive at courts",
+        "UIBackgroundModes": [
+          "location",
+          "fetch",
+          "remote-notification"
+        ],
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    },
+    "android": {
+      "package": "com.courtcrowdclean",
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_BACKGROUND_LOCATION",
+        "FOREGROUND_SERVICE",
+        "FOREGROUND_SERVICE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_BACKGROUND_LOCATION",
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.FOREGROUND_SERVICE_LOCATION"
+      ]
+    },
+    "plugins": [
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Allow Court Crowd to use your location to notify when friends arrive at courts.",
+          "isIosBackgroundLocationEnabled": true,
+          "isAndroidBackgroundLocationEnabled": true
+        }
+      ],
+      "expo-task-manager",
+      "@rnmapbox/maps",
+      "expo-apple-authentication"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "834c59e9-0902-4b29-ada0-5563830266f8"
+      }
+    }
+  }
 }
