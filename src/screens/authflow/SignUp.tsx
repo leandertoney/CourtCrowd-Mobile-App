@@ -17,7 +17,7 @@ import {useFormik} from 'formik';
 import * as Yup from 'yup';
 import {heightPercentageToDP as hp} from 'react-native-responsive-screen';
 import {useAppDispatch} from '../../store';
-import useAuth from '../../hooks/UseAuth';
+import useAuth from '../../hooks/useAuth';
 import {ICreateUser} from '../../interfaces/IUser';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'SignUp'>;

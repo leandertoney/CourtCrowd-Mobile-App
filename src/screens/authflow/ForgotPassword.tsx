@@ -9,7 +9,7 @@ import {KeyboardAwareScrollView} from 'react-native-keyboard-aware-scroll-view';
 import {useFormik} from 'formik';
 import * as Yup from 'yup';
 import {heightPercentageToDP as hp} from 'react-native-responsive-screen';
-import useAuth from '../../hooks/UseAuth';
+import useAuth from '../../hooks/useAuth';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'ForgotPassword'>;
 
