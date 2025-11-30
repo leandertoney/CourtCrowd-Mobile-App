@@ -31,7 +31,8 @@ import {
 
 import {useCourts, useFavorites, CourtWithDistance} from '../../../hooks/useCourts';
 import {useAppSelector} from '../../../store';
-import PlacesMapView from './components/PlacesMapView';
+import {CourtMapView} from '../../../components/CourtMapView';
+import {PresenceUser} from '../../../hooks/useCourtPresence';
 
 type Props = NativeStackScreenProps<
   BottomTabParamlist & HomeStackParamsList,
@@ -218,11 +219,16 @@ const Home: React.FC<Props> = ({navigation}) => {
               />
             </View>
           ) : (
-            <PlacesMapView
-              onPressCard={place =>
-                navigation.navigate('CourtDetails', {court: place})
-              }
-              places={filteredCourts.map(mapCourtToPlace)}
+            <CourtMapView
+              courts={filteredCourts}
+              onCourtPress={(court, users: PresenceUser[]) => {
+                const place = mapCourtToPlace(court);
+                navigation.navigate('CourtDetails', {court: place});
+              }}
+              initialLocation={currentLocation?.coords ? {
+                latitude: currentLocation.coords.latitude,
+                longitude: currentLocation.coords.longitude,
+              } : null}
             />
           )}
         </>

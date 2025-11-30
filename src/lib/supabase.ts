@@ -31,6 +31,9 @@ export interface User {
   updated_at: string;
 }
 
+export type CourtStatus = 'pending' | 'approved' | 'rejected';
+export type CourtSource = 'mapbox' | 'user_submitted' | 'seeded';
+
 export interface Court {
   id: string;
   place_id: string;
@@ -40,6 +43,11 @@ export interface Court {
   lng: number;
   rating: number | null;
   photo_url: string | null;
+  status: CourtStatus;
+  source: CourtSource;
+  categories: string[] | null;
+  submitted_by: string | null;
+  submitted_at: string | null;
   created_at: string;
   updated_at: string;
 }
