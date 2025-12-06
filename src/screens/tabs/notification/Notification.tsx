@@ -1,147 +1,414 @@
-import React, {useState} from 'react';
-import {StyleSheet, View, SectionList, Text} from 'react-native';
+import React, {useCallback} from 'react';
+import {
+  StyleSheet,
+  View,
+  SectionList,
+  TouchableOpacity,
+  RefreshControl,
+  Image,
+} from 'react-native';
 import {RectButton} from 'react-native-gesture-handler';
-import {NotificationItem, SwipeableWraper} from '../../../components';
-import {colors, fonts} from '../../../utilities/theme';
+import {useNavigation} from '@react-navigation/native';
+import {SwipeableWraper, LoadingView, EmptyView} from '../../../components';
+import {useColors} from '../../../contexts/ThemeContext';
+import {spacing, borderRadius} from '../../../utilities/theme';
+import Text from '../../../components/ui/Text';
+import {
+  useNotifications,
+  AppNotification,
+} from '../../../hooks/useNotifications';
+import Svg, {Path, Circle} from 'react-native-svg';
 
-type NotificationItemType = {
-  title: string;
-  image: string;
-  subTitle: string;
-  isActive: boolean;
-  date: string;
+// =============================================================================
+// ICONS
+// =============================================================================
+
+const PersonIcon: React.FC<{color: string; size?: number}> = ({
+  color,
+  size = 24,
+}) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Circle cx="12" cy="8" r="4" stroke={color} strokeWidth="2" />
+    <Path
+      d="M20 21c0-3.314-3.582-6-8-6s-8 2.686-8 6"
+      stroke={color}
+      strokeWidth="2"
+      strokeLinecap="round"
+    />
+  </Svg>
+);
+
+const LocationIcon: React.FC<{color: string; size?: number}> = ({
+  color,
+  size = 24,
+}) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Path
+      d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"
+      stroke={color}
+      strokeWidth="2"
+    />
+    <Circle cx="12" cy="10" r="3" stroke={color} strokeWidth="2" />
+  </Svg>
+);
+
+const MessageIcon: React.FC<{color: string; size?: number}> = ({
+  color,
+  size = 24,
+}) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Path
+      d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2v10z"
+      stroke={color}
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </Svg>
+);
+
+const BellIcon: React.FC<{color: string; size?: number}> = ({
+  color,
+  size = 24,
+}) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Path
+      d="M18 8A6 6 0 106 8c0 7-3 9-3 9h18s-3-2-3-9"
+      stroke={color}
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <Path
+      d="M13.73 21a2 2 0 01-3.46 0"
+      stroke={color}
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </Svg>
+);
+
+// =============================================================================
+// HELPER FUNCTIONS
+// =============================================================================
+
+const getNotificationIcon = (
+  type: string,
+  color: string,
+): React.ReactElement => {
+  switch (type) {
+    case 'friend_arrived':
+    case 'friend_on_way':
+      return <LocationIcon color={color} />;
+    case 'new_follower':
+      return <PersonIcon color={color} />;
+    case 'new_message':
+      return <MessageIcon color={color} />;
+    default:
+      return <BellIcon color={color} />;
+  }
 };
 
-const Row = ({item}: {item: NotificationItemType}) => (
-  <RectButton style={styles.rectButton}>
-    <NotificationItem
-      title={item.title}
-      image={item.image}
-      suTitle={item.subTitle}
-      isActive={item.isActive}
-    />
-  </RectButton>
-);
+const formatTimeAgo = (dateString: string): string => {
+  const date = new Date(dateString);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
 
-const SwipeableRow = ({
-  item,
-  onSwipeableOpen,
-}: {
-  item: NotificationItemType;
-  onSwipeableOpen: (ref: any) => void;
-}) => (
-  <SwipeableWraper onSwipeableOpen={onSwipeableOpen}>
-    <Row item={item} />
-  </SwipeableWraper>
-);
+  if (diffMins < 1) return 'Just now';
+  if (diffMins < 60) return `${diffMins}m ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
+  if (diffDays === 1) return 'Yesterday';
+  if (diffDays < 7) return `${diffDays}d ago`;
+  return date.toLocaleDateString();
+};
 
-// Notification Component
-const Notification = () => {
-  const [currentOpenRow, setCurrentOpenRow] = useState<any>(null);
+const groupNotificationsByDate = (
+  notifications: AppNotification[],
+): {title: string; data: AppNotification[]}[] => {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
 
-  const handleSwipeableOpen = (rowRef: any) => {
-    if (currentOpenRow && currentOpenRow.current !== rowRef.current) {
-      currentOpenRow.current.close();
-    }
-    setCurrentOpenRow(rowRef);
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+
+  const thisWeek = new Date(today);
+  thisWeek.setDate(thisWeek.getDate() - 7);
+
+  const groups: Record<string, AppNotification[]> = {
+    Today: [],
+    Yesterday: [],
+    'This Week': [],
+    Earlier: [],
   };
-  const NOTIFICATION_SECTIONS = [
-    {
-      title: 'Today',
-      data: NOTIFICATION_ARRAY.filter(item => item.date === 'today'),
-    },
-    {
-      title: 'May 4th,2023',
-      data: NOTIFICATION_ARRAY.filter(item => item.date === 'yesterday'),
-    },
-  ];
+
+  notifications.forEach(notification => {
+    const date = new Date(notification.created_at);
+    date.setHours(0, 0, 0, 0);
+
+    if (date.getTime() === today.getTime()) {
+      groups['Today'].push(notification);
+    } else if (date.getTime() === yesterday.getTime()) {
+      groups['Yesterday'].push(notification);
+    } else if (date >= thisWeek) {
+      groups['This Week'].push(notification);
+    } else {
+      groups['Earlier'].push(notification);
+    }
+  });
+
+  return Object.entries(groups)
+    .filter(([_, data]) => data.length > 0)
+    .map(([title, data]) => ({title, data}));
+};
+
+// =============================================================================
+// NOTIFICATION ITEM COMPONENT
+// =============================================================================
+
+interface NotificationItemProps {
+  notification: AppNotification;
+  onPress: () => void;
+  onDelete: () => void;
+}
+
+const NotificationItem: React.FC<NotificationItemProps> = ({
+  notification,
+  onPress,
+  onDelete,
+}) => {
+  const colors = useColors();
+  const avatarUrl = notification.data?.user_avatar;
 
   return (
-    <View style={styles.container}>
+    <SwipeableWraper onSwipeableOpen={() => {}} onDelete={onDelete}>
+      <RectButton
+        style={[
+          styles.notificationItem,
+          {
+            backgroundColor: notification.read
+              ? colors.background
+              : colors.surfaceLight,
+          },
+        ]}
+        onPress={onPress}>
+        <View style={styles.notificationContent}>
+          {avatarUrl ? (
+            <Image source={{uri: avatarUrl}} style={styles.avatar} />
+          ) : (
+            <View
+              style={[styles.iconContainer, {backgroundColor: colors.accent}]}>
+              {getNotificationIcon(notification.type, colors.background)}
+            </View>
+          )}
+
+          <View style={styles.textContainer}>
+            <Text
+              variant="bodyLarge"
+              style={{fontWeight: notification.read ? '400' : '600'}}>
+              {notification.title}
+            </Text>
+            <Text variant="bodySmall" color="secondary" numberOfLines={2}>
+              {notification.body}
+            </Text>
+            <Text variant="caption" color="tertiary" style={styles.time}>
+              {formatTimeAgo(notification.created_at)}
+            </Text>
+          </View>
+
+          {!notification.read && (
+            <View style={[styles.unreadDot, {backgroundColor: colors.accent}]} />
+          )}
+        </View>
+      </RectButton>
+    </SwipeableWraper>
+  );
+};
+
+// =============================================================================
+// NOTIFICATION SCREEN
+// =============================================================================
+
+const Notification: React.FC = () => {
+  const colors = useColors();
+  const navigation = useNavigation<any>();
+  const {
+    notifications,
+    unreadCount,
+    loading,
+    markAsRead,
+    markAllAsRead,
+    deleteNotification,
+    refetch,
+  } = useNotifications();
+
+  const [refreshing, setRefreshing] = React.useState(false);
+
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await refetch();
+    setRefreshing(false);
+  }, [refetch]);
+
+  const handleNotificationPress = useCallback(
+    (notification: AppNotification) => {
+      // Mark as read
+      if (!notification.read) {
+        markAsRead(notification.id);
+      }
+
+      // Navigate based on type
+      switch (notification.type) {
+        case 'friend_arrived':
+        case 'friend_on_way':
+          if (notification.data?.court_id) {
+            navigation.navigate('CourtDetails', {
+              court: {
+                id: notification.data.court_id,
+                place_id: notification.data.court_id,
+                name: notification.data.court_name,
+              },
+            });
+          }
+          break;
+        case 'new_follower':
+          // Could navigate to user profile when that's implemented
+          break;
+        case 'new_message':
+          if (notification.data?.court_id) {
+            navigation.navigate('CourtDetails', {
+              court: {
+                id: notification.data.court_id,
+                place_id: notification.data.court_id,
+                name: notification.data.court_name,
+              },
+            });
+          }
+          break;
+      }
+    },
+    [markAsRead, navigation],
+  );
+
+  const sections = groupNotificationsByDate(notifications);
+
+  if (loading) {
+    return (
+      <View style={[styles.container, {backgroundColor: colors.background}]}>
+        <LoadingView />
+      </View>
+    );
+  }
+
+  return (
+    <View style={[styles.container, {backgroundColor: colors.background}]}>
+      {/* Header Actions */}
+      {notifications.length > 0 && unreadCount > 0 && (
+        <View style={styles.headerActions}>
+          <TouchableOpacity onPress={markAllAsRead}>
+            <Text variant="bodySmall" style={{color: colors.accent}}>
+              Mark all as read
+            </Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
       <SectionList
-        sections={NOTIFICATION_SECTIONS}
+        sections={sections}
         showsVerticalScrollIndicator={false}
-        keyExtractor={item => item.title}
+        keyExtractor={item => item.id}
         renderItem={({item}) => (
-          <SwipeableRow item={item} onSwipeableOpen={handleSwipeableOpen} />
+          <NotificationItem
+            notification={item}
+            onPress={() => handleNotificationPress(item)}
+            onDelete={() => deleteNotification(item.id)}
+          />
         )}
         renderSectionHeader={({section: {title}}) => (
-          <Text style={styles.title}>{title}</Text>
+          <Text variant="h4" style={styles.sectionTitle}>
+            {title}
+          </Text>
         )}
-        contentContainerStyle={{paddingBottom: 130}}
+        contentContainerStyle={styles.listContent}
         stickySectionHeadersEnabled={false}
+        ListEmptyComponent={
+          <EmptyView
+            message="No notifications yet"
+            subMessage="When friends arrive at courts or follow you, you'll see it here"
+          />
+        }
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            tintColor={colors.accent}
+          />
+        }
       />
     </View>
   );
 };
 
+// =============================================================================
+// STYLES
+// =============================================================================
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.black,
-    paddingHorizontal: 20,
   },
-  title: {
-    fontSize: 16,
-    fontFamily: fonts.ReadexBold,
-    color: colors.white,
-    marginTop: 20,
+  headerActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
   },
-  rectButton: {
-    backgroundColor: colors.black,
-    marginTop: 20,
+  listContent: {
+    paddingBottom: 130,
+  },
+  sectionTitle: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.sm,
+  },
+  notificationItem: {
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+  },
+  notificationContent: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  avatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    marginRight: spacing.md,
+  },
+  iconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: spacing.md,
+  },
+  textContainer: {
+    flex: 1,
+  },
+  time: {
+    marginTop: spacing.xs,
+  },
+  unreadDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginLeft: spacing.sm,
+    marginTop: spacing.xs,
   },
 });
-
-export const NOTIFICATION_ARRAY: NotificationItemType[] = [
-  {
-    title: 'Liz Edwards',
-    image:
-      'https://plus.unsplash.com/premium_photo-1689568126014-06fea9d5d341?q=80&w=1740&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
-    subTitle: 'Commented in Buchmiller park group.',
-    isActive: true,
-    date: 'today',
-  },
-  {
-    title: 'Sarah Steven',
-    image:
-      'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8M3x8cHJvZmlsZXxlbnwwfHwwfHx8MA%3D%3D',
-    subTitle: 'Commented in park group.(Location)',
-    isActive: false,
-    date: 'yesterday',
-  },
-  {
-    title: 'Sarah Stevense',
-    image:
-      'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8M3x8cHJvZmlsZXxlbnwwfHwwfHx8MA%3D%3D',
-    subTitle: 'Commented in park group.(Location)',
-    isActive: false,
-    date: 'yesterday',
-  },
-  {
-    title: 'Sarah Steves',
-    image:
-      'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8M3x8cHJvZmlsZXxlbnwwfHwwfHx8MA%3D%3D',
-    subTitle: 'Commented in park group.(Location)',
-    isActive: false,
-    date: 'yesterday',
-  },
-  {
-    title: 'Gurdip Singh',
-    image:
-      'https://media.istockphoto.com/id/1497142422/photo/close-up-photo-portrait-of-young-successful-entrepreneur-businessman-investor-wearing-glasses.webp?a=1&b=1&s=612x612&w=0&k=20&c=YBSe3jKmA6zZgE5U2ojmXjWf6h-Oo2ocdpfL9qMOLao=',
-    subTitle: 'Commented in park group.(Location)',
-    isActive: false,
-    date: 'today',
-  },
-  {
-    title: 'Sarah Stevens',
-    image:
-      'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8M3x8cHJvZmlsZXxlbnwwfHwwfHx8MA%3D%3D',
-    subTitle: 'Commented in park group.(Location)',
-    isActive: false,
-    date: 'today',
-  },
-];
 
 export default Notification;

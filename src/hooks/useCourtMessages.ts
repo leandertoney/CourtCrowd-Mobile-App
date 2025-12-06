@@ -31,7 +31,7 @@ export function useCourtMessages(courtId: string | null) {
         .select(
           `
           *,
-          user:profiles (
+          user:users (
             id,
             name,
             avatar_url
@@ -78,7 +78,7 @@ export function useCourtMessages(courtId: string | null) {
               .select(
                 `
                 *,
-                user:profiles (
+                user:users (
                   id,
                   name,
                   avatar_url

@@ -47,8 +47,9 @@
         }
       ],
       "expo-task-manager",
-      "@rnmapbox/maps",
-      "expo-apple-authentication"
+      "expo-apple-authentication",
+      "expo-font",
+      "react-native-radar"
     ],
     "extra": {
       "eas": {

@@ -22,8 +22,17 @@ export type HomeStackParamsList = {
   Settings: undefined;
   Help: undefined;
   CourtDetails: {court: IPlace};
-  ChatDetail: {groupId: string};
+  ChatDetail: {
+    groupId?: string; // For court chat
+    conversationId?: string; // For DM
+    otherUser?: {
+      id: string;
+      name: string | null;
+      avatar_url: string | null;
+    };
+  };
   SearchPeople: undefined;
+  UserProfile: {userId: string};
 };
 
 const HomeStackNavigator = () => {

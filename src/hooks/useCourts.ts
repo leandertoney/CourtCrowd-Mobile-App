@@ -1,18 +1,28 @@
 import {useEffect, useState, useCallback} from 'react';
 import {supabase, Court} from '../lib/supabase';
-import {getCurrentLocation, getDistanceMiles} from '../services/location';
-import {searchNearbyCourts, DiscoveredCourt} from '../services/mapboxSearch';
+import {getCurrentLocation, getDistanceMiles, DEFAULT_LOCATION} from '../services/location';
+import {searchPickleballCourts} from '../services/googlePlaces';
 
-const DEFAULT_RADIUS_MILES = 10;
+const DEFAULT_RADIUS_MILES = 25; // Increased for better coverage
 
 export interface CourtWithDistance extends Court {
   distance: number | null;
+  isUsingDefaultLocation?: boolean;
+}
+
+interface DiscoveredCourt {
+  place_id: string;
+  name: string;
+  address: string | null;
+  lat: number;
+  lng: number;
+  source: 'google';
 }
 
 /**
  * Hook to fetch and manage courts with automatic discovery
  * - Checks Supabase for nearby courts
- * - If none found, discovers via Mapbox Search API
+ * - If none found, discovers via Google Places API
  * - Caches discovered courts in Supabase
  */
 export function useCourts(radiusMiles: number = DEFAULT_RADIUS_MILES) {
@@ -20,33 +30,17 @@ export function useCourts(radiusMiles: number = DEFAULT_RADIUS_MILES) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isDiscovering, setIsDiscovering] = useState(false);
+  const [isUsingDefaultLocation, setIsUsingDefaultLocation] = useState(false);
 
   const fetchCourts = useCallback(async () => {
     setLoading(true);
     setError(null);
 
     try {
-      // Get current location
+      // Get current location (always returns a location, uses default if needed)
       const location = await getCurrentLocation();
-
-      if (!location) {
-        // No location - just fetch all approved courts
-        const {data, error: fetchError} = await supabase
-          .from('courts')
-          .select('*')
-          .eq('status', 'approved')
-          .order('name');
-
-        if (fetchError) throw fetchError;
-
-        setCourts(
-          (data || []).map(court => ({
-            ...court,
-            distance: null,
-          })),
-        );
-        return;
-      }
+      const isUsingDefault = (location as any).isDefault === true;
+      setIsUsingDefaultLocation(isUsingDefault);
 
       const userLat = location.coords.latitude;
       const userLng = location.coords.longitude;
@@ -75,16 +69,27 @@ export function useCourts(radiusMiles: number = DEFAULT_RADIUS_MILES) {
         }))
         .filter(court => court.distance !== null && court.distance <= radiusMiles);
 
-      // If no courts found, discover via Mapbox
+      // If no courts found, discover via Google Places
       if (courtsWithDistance.length === 0) {
         setIsDiscovering(true);
 
         try {
-          const discoveredCourts = await searchNearbyCourts(
+          const radiusMeters = radiusMiles * 1609; // Convert miles to meters
+          const googleResults = await searchPickleballCourts(
             userLat,
             userLng,
-            radiusMiles,
+            radiusMeters,
           );
+
+          // Transform Google results to DiscoveredCourt format
+          const discoveredCourts: DiscoveredCourt[] = googleResults.map(court => ({
+            place_id: court.placeId,
+            name: court.name,
+            address: court.address,
+            lat: court.lat,
+            lng: court.lng,
+            source: 'google' as const,
+          }));
 
           if (discoveredCourts.length > 0) {
             const newCourts = await saveDiscoveredCourts(discoveredCourts);
@@ -120,7 +125,7 @@ export function useCourts(radiusMiles: number = DEFAULT_RADIUS_MILES) {
     fetchCourts();
   }, [fetchCourts]);
 
-  return {courts, loading, error, isDiscovering, refetch: fetchCourts};
+  return {courts, loading, error, isDiscovering, isUsingDefaultLocation, refetch: fetchCourts};
 }
 
 /**

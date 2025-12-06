@@ -18,4 +18,6 @@ export const images = {
   Courtimg2: require('./Courtimg2.png'),
   SendIcon: require('./SendIcon.png'),
   InfoIcon: require('./Info.png'),
+  // Court placeholder for courts without user photos
+  courtPlaceholder: require('./Courtimg1.png'),
 };

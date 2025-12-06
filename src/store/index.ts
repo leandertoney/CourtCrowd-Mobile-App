@@ -7,11 +7,13 @@ import {
 import {persistStore} from 'redux-persist';
 import {persistedAuthReducer} from './slices/authSlice';
 import placesReducer from './slices/placesSlice';
+import {persistedOnboardingReducer} from './slices/onboardingSlice';
 
 const store = configureStore({
   reducer: {
     auth: persistedAuthReducer,
     places: placesReducer,
+    onboarding: persistedOnboardingReducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({serializableCheck: false}),

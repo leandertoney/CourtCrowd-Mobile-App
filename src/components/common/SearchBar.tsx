@@ -6,7 +6,8 @@ import {
   TextInputProps,
 } from 'react-native';
 import React from 'react';
-import {colors, fonts} from '../../utilities/theme';
+import {fonts} from '../../utilities/theme';
+import {useColors} from '../../contexts/ThemeContext';
 import {SearchIcon} from '../../assets/svg';
 interface Props extends TextInputProps {
   containerStyle?: ViewStyle;
@@ -30,15 +31,24 @@ const SearchBar: React.FC<Props> = ({
   ref,
   ...rest
 }) => {
+  const colors = useColors();
+
   return (
-    <View style={[styles.Container, containerStyle]}>
-      <SearchIcon />
+    <View style={[
+      styles.Container,
+      {
+        backgroundColor: colors.surface,
+        borderColor: colors.border,
+      },
+      containerStyle
+    ]}>
+      <SearchIcon color={colors.text.secondary} />
       <TextInput
         ref={ref}
-        style={styles.textStyle}
+        style={[styles.textStyle, {color: colors.text.primary}]}
         textAlignVertical="center"
         value={value}
-        placeholderTextColor={colors.gray[100]}
+        placeholderTextColor={colors.text.tertiary}
         keyboardType={keyboardType}
         onSubmitEditing={onSubmitEditing}
         placeholder={placeholder}
@@ -54,22 +64,19 @@ export default SearchBar;
 
 const styles = StyleSheet.create({
   Container: {
-    backgroundColor: 'black',
     marginBottom: 1,
     borderRadius: 12,
     flexDirection: 'row',
     height: 47,
     paddingHorizontal: 18,
     alignItems: 'center',
-    borderColor: '#454545',
     borderWidth: 1,
     marginTop: 26,
     justifyContent: 'center',
   },
   textStyle: {
-    fontSize: 12,
+    fontSize: 14,
     fontFamily: fonts.ReadexMedium,
-    color: colors.white,
     flex: 1,
     marginLeft: 10,
     height: 47,

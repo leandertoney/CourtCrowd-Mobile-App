@@ -1,247 +1,320 @@
+import React, {useState, useCallback, useEffect} from 'react';
 import {
   StyleSheet,
   View,
-  Text,
-  Image,
-  TouchableOpacity,
   ScrollView,
+  TouchableOpacity,
+  RefreshControl,
+  Share,
 } from 'react-native';
-import React, {useEffect, useState} from 'react';
-import {NativeStackScreenProps} from '@react-navigation/native-stack';
-import {HomeStackParamsList} from '../../../navigation/HomeNavigation';
-import {BottomTabParamlist} from '../../../navigation/BottomNavigation';
-import {colors, fonts} from '../../../utilities/theme';
-import {ProfileItem} from '../../../components';
-import {useAppDispatch, useAppSelector} from '../../../store';
-import {logout} from '../../../store/slices/authSlice';
-import {
-  HelpIcon,
-  LockIcon,
-  ProfileIcon,
-  RatingIcon,
-  SearchIcon,
-  SeatingIcon,
-} from '../../../assets/svg';
-import {LogoutModel} from '../../../models';
-import Toast from 'react-native-toast-message';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
+import {useNavigation} from '@react-navigation/native';
+import {useColors} from '../../../contexts/ThemeContext';
+import Text from '../../../components/ui/Text';
+import {spacing} from '../../../utilities/theme';
+import {useAppSelector} from '../../../store';
 import {supabase} from '../../../lib/supabase';
+import Toast from 'react-native-toast-message';
+import Svg, {Path, Circle} from 'react-native-svg';
 
-type Props = NativeStackScreenProps<
-  BottomTabParamlist & HomeStackParamsList,
-  'Profile'
->;
+// Import profile components
+import {
+  ProfileHeader,
+  ProfileStats,
+  RatingInput,
+  RecentActivity,
+} from '../../../components/profile';
 
-const Profile: React.FC<Props> = ({navigation}) => {
+// =============================================================================
+// ICONS
+// =============================================================================
+
+const SettingsIcon: React.FC<{color: string; size?: number}> = ({color, size = 24}) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Circle cx="12" cy="12" r="3" stroke={color} strokeWidth="2" />
+    <Path
+      d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z"
+      stroke={color}
+      strokeWidth="2"
+    />
+  </Svg>
+);
+
+// =============================================================================
+// PROFILE SCREEN
+// =============================================================================
+
+interface UserStats {
+  checkins: number;
+  favorites: number;
+  followers: number;
+  following: number;
+  duprRating: number | null;
+  duprId: string | null;
+}
+
+const Profile: React.FC = () => {
+  const colors = useColors();
+  const insets = useSafeAreaInsets();
+  const navigation = useNavigation<any>();
+
   const user = useAppSelector(state => state.auth.user);
+  const [refreshing, setRefreshing] = useState(false);
+  const [savingRating, setSavingRating] = useState(false);
+  const [stats, setStats] = useState<UserStats>({
+    checkins: 0,
+    favorites: 0,
+    followers: 0,
+    following: 0,
+    duprRating: null,
+    duprId: null,
+  });
+  const [userDetails, setUserDetails] = useState<{
+    city: string | null;
+    state: string | null;
+  }>({city: null, state: null});
 
-  const dispatch = useAppDispatch();
-  const [isLogOutModel, setLogOutModal] = useState(false);
-  const [isDeleteModel, setDeleteModel] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
+  // Fetch user stats
+  const fetchStats = useCallback(async () => {
+    if (!user?.id) return;
+
+    try {
+      // Fetch stats in parallel
+      const [
+        checkinsResult,
+        favoritesResult,
+        followersResult,
+        followingResult,
+        userResult,
+      ] = await Promise.all([
+        // Check-ins count
+        supabase
+          .from('court_presence')
+          .select('id', {count: 'exact', head: true})
+          .eq('user_id', user.id),
+        // Favorites count
+        supabase
+          .from('favorites')
+          .select('id', {count: 'exact', head: true})
+          .eq('user_id', user.id),
+        // Followers count
+        supabase
+          .from('follows')
+          .select('id', {count: 'exact', head: true})
+          .eq('following_id', user.id),
+        // Following count
+        supabase
+          .from('follows')
+          .select('id', {count: 'exact', head: true})
+          .eq('follower_id', user.id),
+        // User details (DUPR rating, location)
+        supabase
+          .from('users')
+          .select('dupr_rating, dupr_id, city, state')
+          .eq('id', user.id)
+          .single(),
+      ]);
+
+      setStats({
+        checkins: checkinsResult.count || 0,
+        favorites: favoritesResult.count || 0,
+        followers: followersResult.count || 0,
+        following: followingResult.count || 0,
+        duprRating: userResult.data?.dupr_rating || null,
+        duprId: userResult.data?.dupr_id || null,
+      });
+
+      setUserDetails({
+        city: userResult.data?.city || null,
+        state: userResult.data?.state || null,
+      });
+    } catch (error) {
+      console.error('Error fetching profile stats:', error);
+    }
+  }, [user?.id]);
 
   useEffect(() => {
-    navigation.setOptions({
-      headerRight: () => (
-        <View style={styles.headerIconsContainer}>
-          <TouchableOpacity
-            style={styles.headerIconButton}
-            hitSlop={6}
-            onPress={() => navigation.navigate('SearchPeople')}>
-            <SearchIcon width={18} height={18} />
-          </TouchableOpacity>
-          <View style={styles.ratingContainer}>
-            <RatingIcon />
-            <Text style={styles.ratingText}>5.56</Text>
-          </View>
-        </View>
-      ),
-    });
+    fetchStats();
+  }, [fetchStats]);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await fetchStats();
+    setRefreshing(false);
+  }, [fetchStats]);
+
+  const handleEditProfile = useCallback(() => {
+    navigation.navigate('EditProfile');
   }, [navigation]);
 
-  const handleLogout = () => {
-    dispatch(logout());
-  };
-
-  const deleteAccount = async () => {
+  const handleShareProfile = useCallback(async () => {
     try {
-      setIsLoading(true);
-      const {data: {user: currentUser}} = await supabase.auth.getUser();
+      await Share.share({
+        message: `Check out ${user?.name || 'my'} profile on Court Crowd! 🏓`,
+        // In the future, add deep link: url: `courtcrowd://profile/${user?.id}`
+      });
+    } catch (error) {
+      console.error('Error sharing profile:', error);
+    }
+  }, [user?.name]);
 
-      if (currentUser) {
-        // Delete user's profile data
-        await supabase
-          .from('profiles')
-          .delete()
-          .eq('id', currentUser.id);
+  const handleFollowersPress = useCallback(() => {
+    navigation.navigate('FollowersList', {type: 'followers'});
+  }, [navigation]);
 
-        // Delete user's favorites
-        await supabase
-          .from('favorites')
-          .delete()
-          .eq('user_id', currentUser.id);
+  const handleFollowingPress = useCallback(() => {
+    navigation.navigate('FollowersList', {type: 'following'});
+  }, [navigation]);
 
-        // Delete user's follows
-        await supabase
-          .from('follows')
-          .delete()
-          .or(`follower_id.eq.${currentUser.id},following_id.eq.${currentUser.id}`);
+  const handleSaveRating = useCallback(
+    async (rating: number, duprId?: string) => {
+      if (!user?.id) return;
 
-        // Sign out
-        await supabase.auth.signOut();
+      setSavingRating(true);
+      try {
+        const {error} = await supabase
+          .from('users')
+          .update({
+            dupr_rating: rating,
+            dupr_id: duprId || null,
+          })
+          .eq('id', user.id);
 
-        setDeleteModel(false);
-        dispatch(logout());
+        if (error) throw error;
+
+        setStats(prev => ({
+          ...prev,
+          duprRating: rating,
+          duprId: duprId || null,
+        }));
 
         Toast.show({
           type: 'success',
-          text1: 'Account Deleted',
-          text2: 'Your account data has been removed.',
+          text1: 'Rating Updated',
+          text2: `Your DUPR rating is now ${rating.toFixed(2)}`,
         });
+      } catch (error: any) {
+        Toast.show({
+          type: 'error',
+          text1: 'Error',
+          text2: error.message || 'Failed to save rating',
+        });
+      } finally {
+        setSavingRating(false);
       }
-    } catch (error: any) {
-      console.log('Error deleting account', error);
-      Toast.show({
-        type: 'error',
-        text1: 'Account Deletion Error',
-        text2: error.message || 'An unexpected error occurred. Please try again.',
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    },
+    [user?.id],
+  );
 
   return (
-    <View style={styles.container}>
-      <ScrollView style={{paddingBottom: 0}}>
-        <View style={styles.imgContainer}>
-          <Image
-            source={{
-              uri:
-                user?.photo?.url ||
-                'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcT8fyCL_BuInOSRkT8XwQg0XWGjNQfgHQCXqA&s',
-            }}
-            style={styles.imgStyle}
+    <View style={[styles.container, {backgroundColor: colors.background}]}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={[
+          styles.scrollContent,
+          {paddingTop: insets.top + spacing.sm},
+        ]}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.accent}
+          />
+        }>
+        {/* Settings Icon Header */}
+        <View style={styles.header}>
+          <View style={styles.headerSpacer} />
+          <TouchableOpacity
+            style={[styles.settingsButton, {backgroundColor: colors.surface}]}
+            onPress={() => navigation.navigate('Settings')}
+            activeOpacity={0.7}>
+            <SettingsIcon color={colors.text.primary} size={22} />
+          </TouchableOpacity>
+        </View>
+
+        {/* Profile Header */}
+        <ProfileHeader
+          avatarUrl={user?.photo?.url}
+          name={user?.name || 'Player'}
+          nickname={user?.nickName}
+          city={userDetails.city}
+          state={userDetails.state}
+          onEditProfile={handleEditProfile}
+          onShareProfile={handleShareProfile}
+        />
+
+        {/* Stats */}
+        <View style={styles.section}>
+          <ProfileStats
+            checkins={stats.checkins}
+            favorites={stats.favorites}
+            followers={stats.followers}
+            following={stats.following}
+            onFollowersPress={handleFollowersPress}
+            onFollowingPress={handleFollowingPress}
           />
         </View>
-        <Text style={styles.nameStyle}>{user?.name}</Text>
-        <Text style={styles.surNameStyle}>
-          {user?.nickName ? user.nickName : 'Enter your Nick Name'}
-        </Text>
-        <Text style={styles.surNameStyle}>
-          {user?.address ? user.address : 'Enter your Address'}
-        </Text>
-        <Text style={styles.linkStyle}>www.externallinkhere.com</Text>
-        <ProfileItem
-          icon={<ProfileIcon />}
-          title="Edit Profile"
-          onPress={() => navigation.navigate('EditProfile')}
-          containerStyle={{marginTop: 40}}
-        />
-        <ProfileItem
-          icon={<LockIcon />}
-          title="Change Password"
-          onPress={() => navigation.navigate('ChangePassword')}
-        />
-        <ProfileItem
-          icon={<SeatingIcon />}
-          title="Settings"
-          onPress={() => navigation.navigate('Settings')}
-        />
-        <ProfileItem
-          icon={<HelpIcon />}
-          title="Help & Support"
-          onPress={() => navigation.navigate('Help')}
-        />
-      </ScrollView>
-      <LogoutModel
-        isVisible={isDeleteModel}
-        onClose={() => setDeleteModel(false)}
-        isDeleteAccount
-        onPress={() => {
-          deleteAccount();
-        }}
-        isloading={isLoading}
-      />
 
-      <LogoutModel
-        isVisible={isLogOutModel}
-        onClose={() => setLogOutModal(false)}
-        isDeleteAccount={false}
-        onPress={handleLogout}
-      />
+        {/* DUPR Rating */}
+        <View style={styles.section}>
+          <RatingInput
+            currentRating={stats.duprRating}
+            duprId={stats.duprId}
+            onSave={handleSaveRating}
+            loading={savingRating}
+          />
+        </View>
+
+        {/* Recent Activity */}
+        <View style={styles.section}>
+          <RecentActivity userId={user?.id} limit={5} />
+        </View>
+
+        {/* App Version */}
+        <Text variant="caption" color="tertiary" style={styles.versionText}>
+          Court Crowd v1.0.0
+        </Text>
+      </ScrollView>
     </View>
   );
 };
 
-export default Profile;
+// =============================================================================
+// STYLES
+// =============================================================================
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingHorizontal: 20,
-    backgroundColor: colors.black,
-    paddingTop: 20,
-    paddingBottom: 100,
   },
-  headerIconsContainer: {
+  scrollContent: {
+    paddingHorizontal: spacing.md,
+    paddingBottom: 120,
+  },
+  header: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    marginRight: 7,
+    marginBottom: spacing.md,
   },
-  headerIconButton: {
-    marginRight: 12,
+  headerSpacer: {
+    width: 44,
   },
-  ratingContainer: {
-    backgroundColor: colors.blackLight,
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 4,
-    borderRadius: 12,
-    justifyContent: 'center',
-    marginRight: 8,
-  },
-  ratingText: {
-    fontSize: 12,
-    fontFamily: fonts.ReadexMedium,
-    color: colors.gray[50],
-    marginLeft: 2,
-  },
-  imgContainer: {
-    width: 100,
-    height: 100,
-    borderRadius: 100,
-    borderColor: colors.primary,
-    borderWidth: 2,
-    alignSelf: 'center',
+  settingsButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  imgStyle: {
-    width: 94,
-    height: 94,
-    borderRadius: 100,
-    borderColor: colors.white,
-    borderWidth: 1,
+  section: {
+    marginBottom: spacing.md,
   },
-  surNameStyle: {
-    fontSize: 11,
-    fontFamily: fonts.ReadexRegular,
-    color: '#7A7A7A',
+  versionText: {
     textAlign: 'center',
-    marginTop: 1,
-  },
-  linkStyle: {
-    fontSize: 12,
-    fontFamily: fonts.ReadexRegular,
-    color: colors.primary,
-    textAlign: 'center',
-    marginTop: 1,
-  },
-  nameStyle: {
-    fontSize: 16,
-    fontFamily: fonts.ReadexRegular,
-    color: colors.white,
-    marginTop: 10,
-    textAlign: 'center',
+    marginTop: spacing.lg,
+    marginBottom: spacing.lg,
   },
 });
+
+export default Profile;

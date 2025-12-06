@@ -1,9 +1,25 @@
 import * as Location from 'expo-location';
 import * as TaskManager from 'expo-task-manager';
 import {supabase} from '../lib/supabase';
+import {updateUserTrips} from './tripService';
 
 const LOCATION_TASK_NAME = 'court-crowd-background-location';
 const GEOFENCE_RADIUS_METERS = 15; // ~50 feet
+
+// Default location (Los Angeles area) - used when location isn't available
+export const DEFAULT_LOCATION = {
+  coords: {
+    latitude: 34.0522,
+    longitude: -118.2437,
+    altitude: null,
+    accuracy: null,
+    altitudeAccuracy: null,
+    heading: null,
+    speed: null,
+  },
+  timestamp: Date.now(),
+  isDefault: true, // Flag to indicate this is a fallback
+} as Location.LocationObject & {isDefault?: boolean};
 
 // Haversine distance calculation
 function getDistanceMeters(
@@ -90,6 +106,15 @@ TaskManager.defineTask(LOCATION_TASK_NAME, async ({data, error}) => {
           .eq('court_id', court.id);
       }
     }
+
+    // Update any active trips for this user
+    await updateUserTrips(
+      user.id,
+      location.coords.latitude,
+      location.coords.longitude,
+      courts.map(c => ({id: c.id, lat: c.lat, lng: c.lng})),
+      GEOFENCE_RADIUS_METERS,
+    );
   } catch (err) {
     console.error('Error processing location update:', err);
   }
@@ -192,23 +217,34 @@ export async function stopLocationTracking(): Promise<void> {
 
 /**
  * Get current location (one-time)
+ * Returns default location if permissions aren't granted or location fails
  */
-export async function getCurrentLocation(): Promise<Location.LocationObject | null> {
+export async function getCurrentLocation(): Promise<Location.LocationObject & {isDefault?: boolean}> {
   try {
     const {status} = await Location.requestForegroundPermissionsAsync();
     if (status !== 'granted') {
-      return null;
+      console.log('Location permission not granted, using default location');
+      return DEFAULT_LOCATION;
     }
 
     const location = await Location.getCurrentPositionAsync({
-      accuracy: Location.Accuracy.High,
+      accuracy: Location.Accuracy.Balanced,
+      timeInterval: 5000, // 5 second timeout
     });
 
-    return location;
+    return {...location, isDefault: false};
   } catch (error) {
-    console.error('Failed to get current location:', error);
-    return null;
+    console.warn('Failed to get current location, using default:', error);
+    return DEFAULT_LOCATION;
   }
+}
+
+/**
+ * Check if we have location permissions (without prompting)
+ */
+export async function hasLocationPermission(): Promise<boolean> {
+  const {status} = await Location.getForegroundPermissionsAsync();
+  return status === 'granted';
 }
 
 /**

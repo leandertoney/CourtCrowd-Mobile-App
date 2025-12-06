@@ -6,13 +6,20 @@ import {DeleteIcon} from '../../assets/svg';
 type AppleStyleSwipeableRowProps = {
   children: React.ReactNode;
   onSwipeableOpen?: (ref: React.RefObject<Swipeable>) => void;
+  onDelete?: () => void;
 };
 
 const SwipeableWraper: React.FC<AppleStyleSwipeableRowProps> = ({
   children,
   onSwipeableOpen,
+  onDelete,
 }) => {
   const swipeableRef = useRef<Swipeable>(null);
+
+  const handleDelete = () => {
+    closeSwipeable();
+    onDelete?.();
+  };
 
   const renderRightAction = (
     text: string,
@@ -32,7 +39,7 @@ const SwipeableWraper: React.FC<AppleStyleSwipeableRowProps> = ({
             styles.rightAction,
             {backgroundColor: '#F94949', borderRadius: 8},
           ]}
-          onPress={closeSwipeable}>
+          onPress={handleDelete}>
           <DeleteIcon />
         </RectButton>
       </Animated.View>

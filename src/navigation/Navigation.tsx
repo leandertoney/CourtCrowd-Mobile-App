@@ -1,8 +1,9 @@
 import React, {useEffect} from 'react';
 import {NavigationContainer} from '@react-navigation/native';
 import HomeStackNavigator from './HomeNavigation';
-import {useAppDispatch} from '../store';
+import {useAppDispatch, useAppSelector} from '../store';
 import AuthStackNavigator from './AuthNavigation';
+import OnboardingStackNavigator from './OnboardingNavigation';
 import {setCurrentLocationAction, setUserAction} from '../store/slices/authSlice';
 import {Session} from '@supabase/supabase-js';
 import {supabase} from '../lib/supabase';
@@ -17,15 +18,20 @@ interface NavigationProps {
 
 const Navigation = ({session}: NavigationProps) => {
   const dispatch = useAppDispatch();
+  const hasCompletedOnboarding = useAppSelector(
+    state => state.onboarding.hasCompletedOnboarding,
+  );
 
   useEffect(() => {
     if (session?.user) {
       // Fetch user profile and set in Redux
       fetchUserProfile(session.user.id);
-      // Get current location
+    }
+    // Initialize location for all users (including anonymous) after onboarding
+    if (hasCompletedOnboarding) {
       initializeLocation();
     }
-  }, [session?.user?.id]);
+  }, [session?.user?.id, hasCompletedOnboarding]);
 
   const fetchUserProfile = async (userId: string) => {
     try {
@@ -81,18 +87,29 @@ const Navigation = ({session}: NavigationProps) => {
         );
       }
 
-      // Start background location tracking
-      await startLocationTracking();
+      // Start background location tracking only for logged-in users
+      if (session?.user) {
+        await startLocationTracking();
+      }
     } catch (error) {
       console.error('Error initializing location:', error);
     }
   };
 
-  return (
-    <NavigationContainer>
-      {session?.user ? <HomeStackNavigator /> : <AuthStackNavigator />}
-    </NavigationContainer>
-  );
+  // Determine which navigator to show
+  const renderNavigator = () => {
+    // First-time users: show onboarding
+    if (!hasCompletedOnboarding) {
+      return <OnboardingStackNavigator />;
+    }
+
+    // After onboarding: show main app (works without login for anonymous browsing)
+    // Users can browse courts without logging in
+    // Auth screens are accessible from profile/settings when user wants to save data
+    return <HomeStackNavigator />;
+  };
+
+  return <NavigationContainer>{renderNavigator()}</NavigationContainer>;
 };
 
 export default Navigation;

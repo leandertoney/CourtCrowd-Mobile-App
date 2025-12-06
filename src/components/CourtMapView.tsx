@@ -1,13 +1,11 @@
-import React, {useRef, useCallback, useEffect, useState} from 'react';
+import React from 'react';
 import {StyleSheet, View} from 'react-native';
-import Mapbox, {Camera, MapView, UserLocation, MarkerView} from '@rnmapbox/maps';
 import {Court} from '../lib/supabase';
 import {useCourtPresence, PresenceUser} from '../hooks/useCourtPresence';
-import {AvatarStack} from './AvatarStack';
-import {colors} from '../utilities/theme';
-
-// Initialize Mapbox
-Mapbox.setAccessToken(process.env.EXPO_PUBLIC_MAPBOX_TOKEN || '');
+import {useColors} from '../contexts/ThemeContext';
+import {spacing} from '../utilities/theme';
+import Text from './ui/Text';
+import Svg, {Path, Circle} from 'react-native-svg';
 
 interface CourtMapViewProps {
   courts: Court[];
@@ -15,82 +13,40 @@ interface CourtMapViewProps {
   initialLocation?: {latitude: number; longitude: number} | null;
 }
 
-export function CourtMapView({
-  courts,
-  onCourtPress,
-  initialLocation,
-}: CourtMapViewProps) {
-  const cameraRef = useRef<Camera>(null);
-  const [userLocation, setUserLocation] = useState<{
-    latitude: number;
-    longitude: number;
-  } | null>(initialLocation || null);
+// Map Pin Icon
+const MapPinIcon: React.FC<{color: string; size?: number}> = ({color, size = 48}) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Path
+      d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"
+      stroke={color}
+      strokeWidth="2"
+      fill={color}
+      fillOpacity={0.2}
+    />
+    <Circle cx="12" cy="10" r="3" stroke={color} strokeWidth="2" fill={color} />
+  </Svg>
+);
 
-  // Get court IDs for presence subscription
+/**
+ * CourtMapView - Placeholder for map functionality
+ * Map will be added in a future release
+ */
+export function CourtMapView({courts}: CourtMapViewProps) {
+  const colors = useColors();
   const courtIds = courts.map(c => c.id);
-  const {presence} = useCourtPresence(courtIds);
-
-  // Center on user when location updates
-  const handleUserLocation = useCallback(
-    (location: {coords: {latitude: number; longitude: number}}) => {
-      if (!userLocation) {
-        setUserLocation({
-          latitude: location.coords.latitude,
-          longitude: location.coords.longitude,
-        });
-      }
-    },
-    [userLocation],
-  );
-
-  const handleCourtPress = useCallback(
-    (court: Court) => {
-      const users = presence[court.id]?.users || [];
-      onCourtPress(court, users);
-    },
-    [presence, onCourtPress],
-  );
+  useCourtPresence(courtIds);
 
   return (
-    <View style={styles.container}>
-      <MapView
-        style={styles.map}
-        styleURL={Mapbox.StyleURL.Dark}
-        logoEnabled={false}
-        attributionEnabled={false}
-        compassEnabled={true}
-        scaleBarEnabled={false}>
-        <Camera
-          ref={cameraRef}
-          followUserLocation={!userLocation}
-          followZoomLevel={14}
-          defaultSettings={{
-            centerCoordinate: userLocation
-              ? [userLocation.longitude, userLocation.latitude]
-              : [-122.4194, 37.7749], // Default to SF
-            zoomLevel: 14,
-          }}
-        />
-
-        <UserLocation
-          visible={true}
-          showsUserHeadingIndicator={true}
-          onUpdate={handleUserLocation}
-        />
-
-        {courts.map(court => (
-          <MarkerView
-            key={court.id}
-            coordinate={[court.lng, court.lat]}
-            anchor={{x: 0.5, y: 1}}>
-            <AvatarStack
-              users={presence[court.id]?.users || []}
-              onPress={() => handleCourtPress(court)}
-              size="medium"
-            />
-          </MarkerView>
-        ))}
-      </MapView>
+    <View style={[styles.container, {backgroundColor: colors.surfaceLight}]}>
+      <View style={styles.content}>
+        <MapPinIcon color={colors.accent} size={64} />
+        <Text variant="h3" style={styles.title}>
+          Map View Coming Soon
+        </Text>
+        <Text variant="body" color="secondary" style={styles.text}>
+          Use the list view to browse {courts.length} court{courts.length !== 1 ? 's' : ''} near you.
+        </Text>
+      </View>
     </View>
   );
 }
@@ -98,8 +54,21 @@ export function CourtMapView({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: spacing.xl,
   },
-  map: {
-    flex: 1,
+  content: {
+    alignItems: 'center',
+    maxWidth: 300,
+  },
+  title: {
+    marginTop: spacing.lg,
+    marginBottom: spacing.sm,
+    textAlign: 'center',
+  },
+  text: {
+    textAlign: 'center',
+    marginBottom: spacing.sm,
   },
 });

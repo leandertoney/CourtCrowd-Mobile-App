@@ -1,7 +1,9 @@
 import React, {useState} from 'react';
-import {View, Text, StyleSheet} from 'react-native';
+import {View, StyleSheet} from 'react-native';
 import Accordion from 'react-native-collapsible/Accordion';
-import {colors, fonts} from '../../../utilities/theme';
+import {useColors} from '../../../contexts/ThemeContext';
+import {spacing, borderRadius} from '../../../utilities/theme';
+import Text from '../../../components/ui/Text';
 import {Downarrow, Uparrow} from '../../../assets/svg';
 import {SECTIONS_ARRAY} from '../../../constants/SectionArray';
 
@@ -12,6 +14,7 @@ interface Section {
 }
 
 const Help: React.FC = () => {
+  const colors = useColors();
   const [activeSections, setActiveSections] = useState<number[]>([]);
 
   const renderHeader = (section: Section) => {
@@ -20,13 +23,16 @@ const Help: React.FC = () => {
         style={[
           styles.textContainer,
           {
+            backgroundColor: colors.accent,
             borderBottomRightRadius:
-              section.id === activeSections[0] + 1 ? 0 : 3,
+              section.id === activeSections[0] + 1 ? 0 : borderRadius.sm,
             borderBottomLeftRadius:
-              section.id === activeSections[0] + 1 ? 0 : 3,
+              section.id === activeSections[0] + 1 ? 0 : borderRadius.sm,
           },
         ]}>
-        <Text style={styles.header}>{section.title}</Text>
+        <Text variant="bodyLarge" style={{color: colors.background}}>
+          {section.title}
+        </Text>
 
         {section.id === activeSections[0] + 1 ? <Uparrow /> : <Downarrow />}
       </View>
@@ -35,8 +41,10 @@ const Help: React.FC = () => {
 
   const renderContent = (section: Section) => {
     return (
-      <View style={styles.subContainer}>
-        <Text style={styles.subText}>{section.content}</Text>
+      <View style={[styles.subContainer, {backgroundColor: colors.accent}]}>
+        <Text variant="body" style={{color: colors.background}}>
+          {section.content}
+        </Text>
       </View>
     );
   };
@@ -46,7 +54,7 @@ const Help: React.FC = () => {
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, {backgroundColor: colors.background}]}>
       <Accordion
         sections={SECTIONS_ARRAY}
         activeSections={activeSections}
@@ -63,36 +71,23 @@ export default Help;
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: colors.black,
-    paddingHorizontal: 20,
+    paddingHorizontal: spacing.lg,
     flex: 1,
   },
   subContainer: {
-    backgroundColor: colors.primary,
-    paddingHorizontal: 20,
-    borderBottomLeftRadius: 3,
-    borderBottomRightRadius: 3,
-    paddingBottom: 16,
-  },
-  subText: {
-    color: colors.black,
-    fontSize: 14,
-    fontFamily: fonts.ReadexRegular,
+    paddingHorizontal: spacing.lg,
+    borderBottomLeftRadius: borderRadius.sm,
+    borderBottomRightRadius: borderRadius.sm,
+    paddingBottom: spacing.md,
   },
   textContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    backgroundColor: colors.primary,
-    marginTop: 24,
+    marginTop: spacing.lg,
     height: 72,
     alignItems: 'center',
-    paddingHorizontal: 20,
-    borderTopRightRadius: 3,
-    borderTopLeftRadius: 3,
-  },
-  header: {
-    fontSize: 16,
-    fontFamily: fonts.ReadexMedium,
-    color: colors.black,
+    paddingHorizontal: spacing.lg,
+    borderTopRightRadius: borderRadius.sm,
+    borderTopLeftRadius: borderRadius.sm,
   },
 });

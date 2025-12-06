@@ -27,6 +27,15 @@ export interface User {
   bio: string | null;
   push_token: string | null;
   location_sharing: boolean;
+  // Onboarding fields
+  play_frequency: string | null;
+  primary_struggle: string | null;
+  court_finding_method: string | null;
+  heard_about_us: string | null;
+  search_radius: number;
+  is_premium: boolean;
+  premium_expires_at: string | null;
+  onboarding_completed_at: string | null;
   created_at: string;
   updated_at: string;
 }

@@ -44,7 +44,7 @@ const useAuth = (navigation: any) => {
       Toast.show({
         type: 'success',
         text1: 'Account created',
-        text2: 'Please check your email to verify your account',
+        text2: 'You can now sign in with your credentials',
       });
 
       // Navigate to login after successful signup

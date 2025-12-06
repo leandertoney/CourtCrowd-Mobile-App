@@ -1,281 +1,247 @@
-import React, {useState, useEffect} from 'react';
+import React, {useState} from 'react';
 import {
   StyleSheet,
   View,
-  Text,
-  ImageBackground,
   TouchableOpacity,
-  Dimensions,
+  KeyboardAvoidingView,
   Platform,
+  ScrollView,
 } from 'react-native';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import type {NativeStackScreenProps} from '@react-navigation/native-stack';
-import {appStyles, colors, fonts} from '../../utilities/theme';
+import {useColors} from '../../contexts/ThemeContext';
+import {spacing, borderRadius} from '../../utilities/theme';
+import Text, {DisplayTitle} from '../../components/ui/Text';
+import Button from '../../components/ui/Button';
+import TextInput from '../../components/ui/TextInput';
 import {AuthStackParamList} from '../../navigation/AuthNavigation';
-import {images} from '../../assets/images';
-import {AppButton, FormInput} from '../../components';
-import {KeyboardAwareScrollView} from 'react-native-keyboard-aware-scroll-view';
-import {AppleIcon, GoogleIcon} from '../../assets/svg';
-import {heightPercentageToDP as hp} from 'react-native-responsive-screen';
-import {
-  signInWithMagicLink,
-  signInWithGoogle,
-  signInWithApple,
-  isAppleAuthAvailable,
-} from '../../services/auth';
-import Toast from 'react-native-toast-message';
+import useAuth from '../../hooks/useAuth';
+import Svg, {Path, Circle} from 'react-native-svg';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'LogIn'>;
 
-const LogIn: React.FC<Props> = ({navigation}) => {
+// =============================================================================
+// ICONS
+// =============================================================================
+
+const MailIcon: React.FC<{color: string; size?: number}> = ({color, size = 20}) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Path
+      d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"
+      stroke={color}
+      strokeWidth="2"
+      strokeLinecap="round"
+    />
+    <Path d="M22 6l-10 7L2 6" stroke={color} strokeWidth="2" strokeLinecap="round" />
+  </Svg>
+);
+
+const LockIcon: React.FC<{color: string; size?: number}> = ({color, size = 20}) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Path
+      d="M19 11H5a2 2 0 00-2 2v7a2 2 0 002 2h14a2 2 0 002-2v-7a2 2 0 00-2-2zM7 11V7a5 5 0 0110 0v4"
+      stroke={color}
+      strokeWidth="2"
+      strokeLinecap="round"
+    />
+  </Svg>
+);
+
+// =============================================================================
+// SIGN IN SCREEN
+// =============================================================================
+
+const SignIn: React.FC<Props> = ({navigation}) => {
+  const colors = useColors();
+  const insets = useSafeAreaInsets();
   const [email, setEmail] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [googleLoading, setGoogleLoading] = useState(false);
-  const [appleLoading, setAppleLoading] = useState(false);
-  const [showApple, setShowApple] = useState(false);
-  const [magicLinkSent, setMagicLinkSent] = useState(false);
+  const [password, setPassword] = useState('');
+  const {signInUser, signInLoading} = useAuth(navigation);
 
-  useEffect(() => {
-    // Check if Apple auth is available (iOS only)
-    if (Platform.OS === 'ios') {
-      isAppleAuthAvailable().then(setShowApple);
-    }
-  }, []);
-
-  const handleMagicLink = async () => {
-    if (!email.trim()) {
-      Toast.show({
-        type: 'error',
-        text1: 'Email required',
-        text2: 'Please enter your email address',
-      });
+  const handleSignIn = async () => {
+    if (!email.trim() || !password.trim()) {
       return;
     }
-
-    // Basic email validation
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      Toast.show({
-        type: 'error',
-        text1: 'Invalid email',
-        text2: 'Please enter a valid email address',
-      });
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const {error} = await signInWithMagicLink(email);
-      if (error) throw error;
-
-      setMagicLinkSent(true);
-      Toast.show({
-        type: 'success',
-        text1: 'Check your email',
-        text2: 'We sent you a magic link to sign in',
-      });
-    } catch (error: any) {
-      Toast.show({
-        type: 'error',
-        text1: 'Error',
-        text2: error.message || 'Failed to send magic link',
-      });
-    } finally {
-      setLoading(false);
-    }
+    await signInUser(email, password);
   };
 
-  const handleGoogleSignIn = async () => {
-    setGoogleLoading(true);
-    try {
-      const {error} = await signInWithGoogle();
-      if (error) throw error;
-    } catch (error: any) {
-      Toast.show({
-        type: 'error',
-        text1: 'Error',
-        text2: error.message || 'Failed to sign in with Google',
-      });
-    } finally {
-      setGoogleLoading(false);
-    }
-  };
-
-  const handleAppleSignIn = async () => {
-    setAppleLoading(true);
-    try {
-      const {error} = await signInWithApple();
-      if (error) throw error;
-    } catch (error: any) {
-      Toast.show({
-        type: 'error',
-        text1: 'Error',
-        text2: error.message || 'Failed to sign in with Apple',
-      });
-    } finally {
-      setAppleLoading(false);
-    }
-  };
+  const isFormValid = email.trim() && password.trim();
 
   return (
-    <KeyboardAwareScrollView contentContainerStyle={styles.contentContainer}>
-      <ImageBackground
-        source={images.backGround}
-        style={{
-          height: Dimensions.get('screen').height,
-          paddingBottom: 10,
-          paddingHorizontal: 20,
-        }}>
-        <Text style={[appStyles.title, styles.titleStyle]}>Welcome</Text>
-        <Text style={appStyles.subTitle}>
-          Sign in to find courts and connect with players near you.
-        </Text>
-
-        {magicLinkSent ? (
-          <View style={styles.magicLinkSent}>
-            <Text style={styles.magicLinkTitle}>Check your email</Text>
-            <Text style={styles.magicLinkText}>
-              We sent a magic link to {email}. Click the link in the email to
-              sign in.
+    <KeyboardAvoidingView
+      style={[styles.container, {backgroundColor: colors.background}]}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <ScrollView
+        contentContainerStyle={[
+          styles.scrollContent,
+          {paddingTop: insets.top + spacing.xl},
+        ]}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled">
+        {/* Logo/Brand Section */}
+        <View style={styles.brandSection}>
+          <View style={[styles.logoContainer, {backgroundColor: colors.accent}]}>
+            <Text variant="h1" style={{color: colors.text.inverse, fontSize: 32}}>
+              CC
             </Text>
-            <TouchableOpacity
-              style={styles.resendButton}
-              onPress={() => setMagicLinkSent(false)}>
-              <Text style={styles.resendText}>Use a different email</Text>
-            </TouchableOpacity>
           </View>
-        ) : (
-          <>
-            <FormInput
-              title="Email Address"
-              placeholder="e.g example@gmail.com"
-              keyboardType="email-address"
-              containerStyle={{marginTop: 30}}
-              onChangeText={setEmail}
-              value={email}
-              autoCapitalize="none"
-            />
+          <DisplayTitle style={styles.title}>Welcome Back</DisplayTitle>
+          <Text variant="body" color="secondary" style={styles.subtitle}>
+            Sign in to find courts and connect with players near you.
+          </Text>
+        </View>
 
-            <AppButton
-              title="SEND MAGIC LINK"
-              onPress={handleMagicLink}
-              isLoading={loading}
-              containerStyle={{marginTop: 20}}
-            />
+        {/* Form Section */}
+        <View style={styles.formSection}>
+          <TextInput
+            label="Email Address"
+            placeholder="you@example.com"
+            keyboardType="email-address"
+            autoCapitalize="none"
+            autoComplete="email"
+            value={email}
+            onChangeText={setEmail}
+            leftIcon={<MailIcon color={colors.text.tertiary} />}
+            variant="outlined"
+          />
 
-            <Text style={styles.divider}>OR</Text>
+          <TextInput
+            label="Password"
+            placeholder="Enter your password"
+            isPassword
+            value={password}
+            onChangeText={setPassword}
+            leftIcon={<LockIcon color={colors.text.tertiary} />}
+            variant="outlined"
+          />
 
-            <View style={styles.socialButtons}>
-              <TouchableOpacity
-                style={styles.socialButton}
-                onPress={handleGoogleSignIn}
-                disabled={googleLoading}>
-                <GoogleIcon />
-                <Text style={styles.socialButtonText}>
-                  {googleLoading ? 'Signing in...' : 'Continue with Google'}
-                </Text>
-              </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.forgotPassword}
+            onPress={() => navigation.navigate('ForgotPassword')}>
+            <Text variant="label" style={{color: colors.accent}}>
+              Forgot Password?
+            </Text>
+          </TouchableOpacity>
 
-              {showApple && (
-                <TouchableOpacity
-                  style={[styles.socialButton, styles.appleButton]}
-                  onPress={handleAppleSignIn}
-                  disabled={appleLoading}>
-                  <AppleIcon />
-                  <Text style={[styles.socialButtonText, styles.appleButtonText]}>
-                    {appleLoading ? 'Signing in...' : 'Continue with Apple'}
-                  </Text>
-                </TouchableOpacity>
-              )}
-            </View>
-          </>
-        )}
+          <Button
+            title="Sign In"
+            onPress={handleSignIn}
+            loading={signInLoading}
+            disabled={signInLoading || !isFormValid}
+            style={styles.signInButton}
+            size="lg"
+          />
+        </View>
 
-        <Text style={styles.termsText}>
-          By signing in, you agree to our Terms of Service and Privacy Policy
-        </Text>
-      </ImageBackground>
-    </KeyboardAwareScrollView>
+        {/* Divider */}
+        <View style={styles.dividerContainer}>
+          <View style={[styles.divider, {backgroundColor: colors.border}]} />
+          <Text variant="caption" color="tertiary" style={styles.dividerText}>
+            or continue with
+          </Text>
+          <View style={[styles.divider, {backgroundColor: colors.border}]} />
+        </View>
+
+        {/* Social Sign In */}
+        <View style={styles.socialButtons}>
+          <TouchableOpacity
+            style={[styles.socialButton, {backgroundColor: colors.surfaceLight}]}>
+            <Text variant="label">Google</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.socialButton, {backgroundColor: colors.surfaceLight}]}>
+            <Text variant="label">Apple</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Sign Up Link */}
+        <View style={[styles.signUpContainer, {paddingBottom: insets.bottom + spacing.lg}]}>
+          <Text variant="body" color="secondary">
+            Don't have an account?{' '}
+          </Text>
+          <TouchableOpacity onPress={() => navigation.navigate('SignUp')}>
+            <Text variant="body" style={{color: colors.accent, fontWeight: '600'}}>
+              Sign Up
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 };
 
-export default LogIn;
+// =============================================================================
+// STYLES
+// =============================================================================
 
 const styles = StyleSheet.create({
-  titleStyle: {
-    paddingTop: hp('13%'),
+  container: {
+    flex: 1,
   },
-  contentContainer: {
-    flexDirection: 'column',
+  scrollContent: {
+    paddingHorizontal: spacing.lg,
+    flexGrow: 1,
   },
-  divider: {
-    fontSize: 14,
-    fontFamily: fonts.ReadexRegular,
-    color: colors.gray3,
-    textAlign: 'center',
-    marginVertical: 24,
+  brandSection: {
+    alignItems: 'center',
+    marginBottom: spacing.xl,
   },
-  socialButtons: {
-    gap: 12,
-  },
-  socialButton: {
-    flexDirection: 'row',
+  logoContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.white,
-    borderRadius: 12,
-    paddingVertical: 14,
-    gap: 12,
+    marginBottom: spacing.lg,
   },
-  appleButton: {
-    backgroundColor: colors.black,
-    borderWidth: 1,
-    borderColor: colors.white,
+  title: {
+    marginBottom: spacing.sm,
+    textAlign: 'center',
   },
-  socialButtonText: {
-    fontSize: 16,
-    fontFamily: fonts.ReadexMedium,
-    color: colors.black,
+  subtitle: {
+    textAlign: 'center',
+    maxWidth: 280,
   },
-  appleButtonText: {
-    color: colors.white,
+  formSection: {
+    marginBottom: spacing.lg,
   },
-  magicLinkSent: {
-    marginTop: 40,
+  forgotPassword: {
+    alignSelf: 'flex-end',
+    marginTop: -spacing.sm,
+    marginBottom: spacing.lg,
+  },
+  signInButton: {
+    marginTop: spacing.sm,
+  },
+  dividerContainer: {
+    flexDirection: 'row',
     alignItems: 'center',
+    marginBottom: spacing.lg,
   },
-  magicLinkTitle: {
-    fontSize: 24,
-    fontFamily: fonts.ReadexBold,
-    color: colors.primary,
-    marginBottom: 16,
+  divider: {
+    flex: 1,
+    height: 1,
   },
-  magicLinkText: {
-    fontSize: 16,
-    fontFamily: fonts.ReadexRegular,
-    color: colors.white,
-    textAlign: 'center',
-    lineHeight: 24,
+  dividerText: {
+    marginHorizontal: spacing.md,
   },
-  resendButton: {
-    marginTop: 24,
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderWidth: 1,
-    borderColor: colors.primary,
-    borderRadius: 8,
+  socialButtons: {
+    flexDirection: 'row',
+    gap: spacing.md,
+    marginBottom: spacing.xl,
   },
-  resendText: {
-    fontSize: 14,
-    fontFamily: fonts.ReadexMedium,
-    color: colors.primary,
+  socialButton: {
+    flex: 1,
+    height: 52,
+    borderRadius: borderRadius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  termsText: {
-    fontSize: 12,
-    fontFamily: fonts.ReadexRegular,
-    color: colors.gray3,
-    textAlign: 'center',
-    marginTop: 40,
-    paddingHorizontal: 20,
-    lineHeight: 18,
+  signUpContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginTop: 'auto',
   },
 });
+
+export default SignIn;

@@ -1,0 +1,12 @@
+export {default as Welcome} from './Welcome';
+export {default as SocialProof} from './SocialProof';
+export {default as AppDemo} from './AppDemo';
+export {default as PlayFrequency} from './PlayFrequency';
+export {default as BiggestStruggle} from './BiggestStruggle';
+export {default as CourtFindingMethod} from './CourtFindingMethod';
+export {default as HeardAboutUs} from './HeardAboutUs';
+export {default as FeatureBenefits} from './FeatureBenefits';
+export {default as PersonalizedReinforcement} from './PersonalizedReinforcement';
+export {default as PremiumTeaser} from './PremiumTeaser';
+export {default as Paywall} from './Paywall';
+export {default as FreeAccess} from './FreeAccess';

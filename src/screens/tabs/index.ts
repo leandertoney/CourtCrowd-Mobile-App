@@ -11,6 +11,10 @@ import CourtDetails from './home/CourtDetails';
 import ChatDetail from './chat/ChatDetail';
 import SearchPeople from './profile/SearchPeople';
 
+// New screens
+import Explore from './explore/Explore';
+import Activity from './activity/Activity';
+
 export {
   SearchPeople,
   ChatDetail,
@@ -24,4 +28,7 @@ export {
   Profile,
   Favorite,
   Notification,
+  // New exports
+  Explore,
+  Activity,
 };

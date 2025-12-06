@@ -2,7 +2,6 @@ import {
   Image,
   ImageSourcePropType,
   StyleSheet,
-  Text,
   TextInput,
   TouchableOpacity,
   View,
@@ -12,7 +11,9 @@ import {
 } from 'react-native';
 import {images} from '../../assets/images';
 import {FC} from 'react';
-import {colors, fonts} from '../../utilities/theme';
+import {fonts} from '../../utilities/theme';
+import {useColors} from '../../contexts/ThemeContext';
+import Text from '../ui/Text';
 import React from 'react';
 
 interface Props extends TextInputProps {
@@ -53,13 +54,15 @@ const FormInput: FC<Props> = ({
   error,
   ...rest
 }) => {
+  const colors = useColors();
+
   return (
     <View style={containerStyle}>
-      <Text style={styles.titleStyle}>{title}</Text>
-      <View style={[styles.container, innerContainer]}>
+      <Text variant="label" style={[styles.titleStyle, {color: colors.text.primary}]}>{title}</Text>
+      <View style={[styles.container, {borderBottomColor: colors.border}, innerContainer]}>
         <TextInput
-          style={styles.subTitleStyle}
-          placeholderTextColor={'#888888'}
+          style={[styles.subTitleStyle, {color: colors.text.primary}]}
+          placeholderTextColor={colors.text.tertiary}
           secureTextEntry={secureTextEntry}
           value={value}
           {...rest}
@@ -72,7 +75,7 @@ const FormInput: FC<Props> = ({
               source={secureTextEntry ? images.hideicon : images.unhideicon}
               style={[
                 styles.leftIconContainer,
-                {tintColor: value ? 'white' : 'white'},
+                {tintColor: colors.text.primary},
               ]}
             />
           </TouchableOpacity>
@@ -80,21 +83,19 @@ const FormInput: FC<Props> = ({
           <TouchableOpacity onPress={onRightIconPress} activeOpacity={0.7}>
             <Image
               source={RightIcon}
-              style={styles.leftIconContainer}
+              style={[styles.leftIconContainer, {tintColor: colors.text.primary}]}
               resizeMode="contain"
             />
           </TouchableOpacity>
         ) : null}
       </View>
-      {errorMessage && <Text style={styles.errorText}>{errorMessage}</Text>}
+      {errorMessage && <Text variant="caption" style={[styles.errorText, {color: colors.error}]}>{errorMessage}</Text>}
     </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    // height: 40,
-    borderBottomColor: colors.white,
     borderBottomWidth: 1,
     alignItems: 'center',
     flexDirection: 'row',
@@ -103,14 +104,12 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
   },
   titleStyle: {
-    color: colors.white,
     fontSize: 13,
     fontFamily: fonts.ReadexRegular,
     marginTop: 20,
   },
   subTitleStyle: {
     flex: 1,
-    color: colors.white,
     fontSize: 14,
     fontFamily: fonts.ReadexRegular,
   },
@@ -119,7 +118,6 @@ const styles = StyleSheet.create({
     height: 20,
   },
   errorText: {
-    color: colors.red,
     marginTop: 3,
     fontSize: 12,
     fontFamily: fonts.ReadexMedium,

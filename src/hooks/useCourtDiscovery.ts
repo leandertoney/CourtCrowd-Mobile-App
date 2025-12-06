@@ -1,7 +1,7 @@
 import {useState, useCallback} from 'react';
 import {supabase, Court} from '../lib/supabase';
 import {getCurrentLocation, getDistanceMiles} from '../services/location';
-import {searchNearbyCourts, DiscoveredCourt} from '../services/mapboxSearch';
+import {searchNearbyCourts, DiscoveredCourt} from '../services/radarSearch';
 
 const DEFAULT_RADIUS_MILES = 10;
 
@@ -12,7 +12,7 @@ export interface CourtWithDistance extends Court {
 /**
  * Hook to discover and fetch courts near the user
  * - First checks Supabase for cached courts within radius
- * - If no courts found, queries Mapbox Search API
+ * - If no courts found, queries Radar Search API
  * - Saves discovered courts to Supabase for future users
  */
 export function useCourtDiscovery(radiusMiles: number = DEFAULT_RADIUS_MILES) {
@@ -75,7 +75,7 @@ export function useCourtDiscovery(radiusMiles: number = DEFAULT_RADIUS_MILES) {
         }))
         .filter(court => court.distance !== null && court.distance <= radiusMiles);
 
-      // Step 3: If no courts found, search via Mapbox API
+      // Step 3: If no courts found, search via Radar API
       if (courtsWithDistance.length === 0) {
         setIsDiscovering(true);
 
@@ -143,7 +143,7 @@ async function saveDiscoveredCourts(
     lng: court.lng,
     source: court.source,
     categories: court.categories,
-    status: 'approved' as const, // Mapbox-discovered courts are auto-approved
+    status: 'approved' as const, // Discovered courts are auto-approved
     rating: null,
     photo_url: null,
   }));

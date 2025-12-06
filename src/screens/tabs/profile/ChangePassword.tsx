@@ -1,10 +1,13 @@
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
 import React, {useState} from 'react';
-import {View, StyleSheet, Text} from 'react-native';
+import {View, StyleSheet} from 'react-native';
 import {HomeStackParamsList} from '../../../navigation/HomeNavigation';
 import {BottomTabParamlist} from '../../../navigation/BottomNavigation';
-import {colors, fonts} from '../../../utilities/theme';
-import {AppButton, FormInput} from '../../../components';
+import {useColors} from '../../../contexts/ThemeContext';
+import {spacing} from '../../../utilities/theme';
+import {FormInput} from '../../../components';
+import Button from '../../../components/ui/Button';
+import Text from '../../../components/ui/Text';
 import {KeyboardAwareScrollView} from 'react-native-keyboard-aware-scroll-view';
 import {useFormik} from 'formik';
 import * as Yup from 'yup';
@@ -18,6 +21,7 @@ type Props = NativeStackScreenProps<
 >;
 
 const ChangePassword: React.FC<Props> = ({navigation}) => {
+  const colors = useColors();
   const [currentPasswod, setCurrentPassword] = useState(false);
   const [newPasswod, setNewPassword] = useState(false);
   const [confirmPasswod, setConfirmPassword] = useState(false);
@@ -80,9 +84,9 @@ const ChangePassword: React.FC<Props> = ({navigation}) => {
   };
 
   return (
-    <KeyboardAwareScrollView contentContainerStyle={styles.contentContainer}>
-      <View style={styles.container}>
-        <Text style={styles.titleStyle}>Enter your old password</Text>
+    <KeyboardAwareScrollView contentContainerStyle={[styles.contentContainer, {backgroundColor: colors.background}]}>
+      <View style={[styles.container, {backgroundColor: colors.background}]}>
+        <Text variant="body" style={styles.titleStyle}>Enter your old password</Text>
         <FormInput
           title="Current Password"
           placeholder="Enter your password"
@@ -96,7 +100,7 @@ const ChangePassword: React.FC<Props> = ({navigation}) => {
             formik.touched.currentPassword && formik.errors.currentPassword
           }
         />
-        <Text style={styles.titleStyle}>Set a new password</Text>
+        <Text variant="body" style={styles.titleStyle}>Set a new password</Text>
 
         <FormInput
           title="Password"
@@ -123,11 +127,12 @@ const ChangePassword: React.FC<Props> = ({navigation}) => {
           }
         />
       </View>
-      <AppButton
+      <Button
         title="CHANGE PASSWORD"
-        customStyle={{marginBottom: 20, marginHorizontal: 20}}
         onPress={formik.handleSubmit}
-        isLoading={isloading}
+        loading={isloading}
+        size="lg"
+        style={{marginBottom: spacing.lg, marginHorizontal: spacing.lg}}
       />
       <ChangePasswordModel
         isVisible={isChangePasswordModel}
@@ -141,19 +146,14 @@ const ChangePassword: React.FC<Props> = ({navigation}) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.black,
-    paddingHorizontal: 20,
+    paddingHorizontal: spacing.lg,
   },
   titleStyle: {
-    fontSize: 16,
-    fontFamily: fonts.ReadexRegular,
-    color: colors.white,
-    marginTop: 20,
+    marginTop: spacing.lg,
   },
   contentContainer: {
     flexDirection: 'column',
     flexGrow: 1,
-    backgroundColor: colors.black,
   },
 });
 

@@ -75,9 +75,23 @@ create index if not exists idx_follows_follower on public.follows(follower_id);
 create index if not exists idx_follows_following on public.follows(following_id);
 create index if not exists idx_courts_location on public.courts(lat, lng);
 
--- Enable realtime for presence and messages
-alter publication supabase_realtime add table public.court_presence;
-alter publication supabase_realtime add table public.court_messages;
+-- Enable realtime for presence and messages (idempotent)
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime' AND tablename = 'court_presence'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.court_presence;
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime' AND tablename = 'court_messages'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.court_messages;
+  END IF;
+END $$;
 
 -- Row Level Security Policies
 

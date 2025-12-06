@@ -1,24 +1,24 @@
 import * as React from 'react';
-import {Image, Keyboard, StyleSheet, View} from 'react-native';
-import {
-  BottomTabBarProps,
-  createBottomTabNavigator,
-} from '@react-navigation/bottom-tabs';
-import {colors, fonts} from '../utilities/theme';
-import {Chat, Favorite, Home, Notification, Profile} from '../screens/tabs';
-import {images} from '../assets/images';
+import {Keyboard, StyleSheet} from 'react-native';
+import {createBottomTabNavigator} from '@react-navigation/bottom-tabs';
+import {Home, Explore, Favorite, Notification, Profile} from '../screens/tabs';
 import CustomBottomTab from './CustomBottomBar';
+import {useColors} from '../contexts/ThemeContext';
+import {fonts} from '../utilities/theme';
+
+// Tab order: Search | Favorites | Home (center) | Notifications | Profile
 export type BottomTabParamlist = {
+  Search: undefined;
+  Favorites: undefined;
   Home: undefined;
-  Favorite: undefined;
-  Notification: undefined;
-  Chat: undefined;
+  Notifications: undefined;
   Profile: undefined;
 };
 
 const Tab = createBottomTabNavigator<BottomTabParamlist>();
 
 function BottomTabs() {
+  const colors = useColors();
   const [isKeyboardVisible, setKeyboardVisible] = React.useState(false);
 
   React.useEffect(() => {
@@ -35,6 +35,7 @@ function BottomTabs() {
       hideSubscription.remove();
     };
   }, []);
+
   const CustomBottomNavigation = (props: any) => {
     if (isKeyboardVisible) {
       return null;
@@ -46,127 +47,68 @@ function BottomTabs() {
     <Tab.Navigator
       initialRouteName="Home"
       tabBar={CustomBottomNavigation}
-      screenOptions={({route}) => ({
+      screenOptions={{
         tabBarHideOnKeyboard: true,
-        tabBarActiveTintColor: colors.primary,
-        tabBarStyle: styles.tabBarStyle,
+        tabBarActiveTintColor: colors.accent,
+        tabBarStyle: [styles.tabBarStyle, {backgroundColor: colors.surface}],
         tabBarLabelStyle: styles.tabBarLabelStyle,
         tabBarItemStyle: styles.tabBarItemStyle,
-        headerStyle: styles.headerStyle,
-        headerTitleStyle: styles.headerTitleStyle,
+        headerStyle: [styles.headerStyle, {backgroundColor: colors.background}],
+        headerTitleStyle: [styles.headerTitleStyle, {color: colors.text.primary}],
         headerTitleAlign: 'center',
         headerShown: false,
-        tabBarShowLabel: false,
+        tabBarShowLabel: true,
         headerShadowVisible: false,
-
-        tabBarIcon: ({color, focused}) => {
-          let source;
-          switch (route.name) {
-            case 'Favorite':
-              source = focused ? images.Favoritefill : images.favoriteicon;
-              break;
-            case 'Notification':
-              source = focused
-                ? images.Notificationfill
-                : images.notificationicon;
-              break;
-            case 'Home':
-              source = focused ? images.Homefill : images.homeicon;
-              break;
-
-            case 'Chat':
-              source = focused ? images.Chatfill : images.chaticon;
-              break;
-            case 'Profile':
-              source = focused ? images.Profilefill : images.profileicon;
-              break;
-          }
-          return (
-            <View
-              style={[
-                styles.iconContainer,
-                focused && {backgroundColor: colors.primary},
-              ]}>
-              <Image
-                resizeMode="contain"
-                style={[styles.icon]}
-                source={source}
-              />
-            </View>
-          );
-        },
-      })}>
+      }}>
+      {/* Tab Order: Search | Favorites | Home | Notifications | Profile */}
       <Tab.Screen
-        name="Favorite"
+        name="Search"
+        component={Explore}
+        options={{tabBarLabel: 'Search'}}
+      />
+      <Tab.Screen
+        name="Favorites"
         component={Favorite}
-        options={{headerShown: true}}
+        options={{tabBarLabel: 'Favorites'}}
       />
       <Tab.Screen
-        name="Notification"
+        name="Home"
+        component={Home}
+        options={{tabBarLabel: 'Home'}}
+      />
+      <Tab.Screen
+        name="Notifications"
         component={Notification}
-        options={{headerShown: true}}
-      />
-      <Tab.Screen name="Home" component={Home} />
-      <Tab.Screen
-        name="Chat"
-        component={Chat}
-        options={{headerShown: true, headerTitle: 'Chats'}}
+        options={{tabBarLabel: 'Alerts'}}
       />
       <Tab.Screen
         name="Profile"
         component={Profile}
-        options={{headerShown: true, headerTitleAlign: 'left'}}
+        options={{tabBarLabel: 'Profile'}}
       />
     </Tab.Navigator>
   );
 }
 
 const styles = StyleSheet.create({
-  icon: {
-    width: 22,
-    height: 22,
-  },
-  iconContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: 50,
-    height: 50,
-    borderRadius: 32,
-  },
   tabBarStyle: {
-    height: 80,
-    backgroundColor: '#131313',
-    marginHorizontal: 20,
-    borderRadius: 20,
-    borderColor: '#92929233',
-    borderWidth: 2,
-    marginBottom: 10,
-    position: 'absolute',
+    // No longer floating - embedded style
   },
   tabBarItemStyle: {
-    height: 43,
+    height: 49,
     alignSelf: 'center',
   },
   headerTitleStyle: {
     fontSize: 22,
-    fontFamily: fonts.GameDay,
+    fontFamily: fonts.display,
     textShadowColor: '#C82828',
     textShadowOffset: {width: 2, height: 1},
     textShadowRadius: 2,
-    color: colors.white,
   },
   tabBarLabelStyle: {
     justifyContent: 'center',
   },
-  headerStyle: {
-    backgroundColor: colors.black,
-  },
-  hitSlop: {
-    left: 10,
-    right: 10,
-    bottom: 10,
-    top: 10,
-  },
+  headerStyle: {},
 });
 
 export default BottomTabs;

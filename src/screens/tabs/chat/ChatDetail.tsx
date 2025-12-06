@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import {HomeStackParamsList} from '../../../navigation/HomeNavigation';
 import {BottomTabParamlist} from '../../../navigation/BottomNavigation';
-import {colors, fonts} from '../../../utilities/theme';
+import {colors, fonts, spacing} from '../../../utilities/theme';
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
 import {
   Bubble,
@@ -30,9 +30,9 @@ import {ChatItem} from '../../../components';
 import {ChatUserModel} from '../../../models';
 import {supabase} from '../../../lib/supabase';
 import {useCourtMessages} from '../../../hooks/useCourtMessages';
+import {useConversationMessages} from '../../../hooks/useDirectMessages';
 import {useAppSelector} from '../../../store';
 import * as ImagePicker from 'expo-image-picker';
-import {uploadImage} from '../../../services/storage';
 
 type Props = NativeStackScreenProps<
   BottomTabParamlist & HomeStackParamsList,
@@ -40,7 +40,7 @@ type Props = NativeStackScreenProps<
 >;
 
 const ChatDetail: React.FC<Props> = ({navigation, route}) => {
-  const {groupId} = route.params;
+  const {groupId, conversationId, otherUser} = route.params as any;
   const user = useAppSelector(state => state.auth.user);
   const [isUserModel, setUserModal] = useState(false);
   const [imageLocalPath, setImageLocalPath] = useState<string>('');
@@ -48,54 +48,91 @@ const ChatDetail: React.FC<Props> = ({navigation, route}) => {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const {width} = useWindowDimensions();
 
-  const {messages: courtMessages, sendMessage, sending} = useCourtMessages(groupId);
+  // Determine if this is a DM or court chat
+  const isDM = !!conversationId;
+
+  // Use appropriate hook based on chat type
+  const courtChat = useCourtMessages(isDM ? null : groupId);
+  const dmChat = useConversationMessages(isDM ? conversationId : null);
+
+  const {
+    messages: rawMessages,
+    sendMessage,
+    sending,
+  } = isDM
+    ? {
+        messages: dmChat.messages,
+        sendMessage: dmChat.sendMessage,
+        sending: dmChat.sending,
+      }
+    : {
+        messages: courtChat.messages,
+        sendMessage: courtChat.sendMessage,
+        sending: courtChat.sending,
+      };
 
   // Get current user ID
   useEffect(() => {
     const getUser = async () => {
-      const {data: {user}} = await supabase.auth.getUser();
+      const {
+        data: {user},
+      } = await supabase.auth.getUser();
       setCurrentUserId(user?.id || null);
     };
     getUser();
   }, []);
 
-  // Convert court messages to GiftedChat format
+  // Convert messages to GiftedChat format
   const giftedMessages: IMessage[] = useMemo(() => {
-    return courtMessages
-      .map(msg => ({
-        _id: msg.id,
-        text: msg.content,
-        createdAt: new Date(msg.created_at),
-        user: {
-          _id: msg.user_id,
-          name: msg.user?.name || 'Anonymous',
-          avatar: msg.user?.avatar_url || 'https://randomuser.me/api/portraits/men/72.jpg',
-        },
-        image: msg.image_url || undefined,
-      }))
+    return rawMessages
+      .map(msg => {
+        if (isDM) {
+          // DM message format
+          const dmMsg = msg as any;
+          return {
+            _id: dmMsg.id,
+            text: dmMsg.content,
+            createdAt: new Date(dmMsg.created_at),
+            user: {
+              _id: dmMsg.sender_id,
+              name: dmMsg.sender?.name || 'Anonymous',
+              avatar:
+                dmMsg.sender?.avatar_url ||
+                'https://randomuser.me/api/portraits/men/72.jpg',
+            },
+          };
+        } else {
+          // Court message format
+          const courtMsg = msg as any;
+          return {
+            _id: courtMsg.id,
+            text: courtMsg.content,
+            createdAt: new Date(courtMsg.created_at),
+            user: {
+              _id: courtMsg.user_id,
+              name: courtMsg.user?.name || 'Anonymous',
+              avatar:
+                courtMsg.user?.avatar_url ||
+                'https://randomuser.me/api/portraits/men/72.jpg',
+            },
+            image: courtMsg.image_url || undefined,
+          };
+        }
+      })
       .reverse(); // GiftedChat expects newest first
-  }, [courtMessages]);
+  }, [rawMessages, isDM]);
 
   const onSendMessage = async (messages: IMessage[] = []) => {
     const [messageToSend] = messages;
 
     try {
-      let imageUrl = '';
       setImageUploading(true);
-
-      if (imageLocalPath && currentUserId) {
-        // Generate a random path using userId and timestamp
-        const randomPath = `chat/${groupId}/${currentUserId}_${Date.now()}`;
-        // Upload image and get URL
-        const uploadResult = await uploadImage(imageLocalPath, randomPath);
-        imageUrl = uploadResult.url;
-      }
       setImageUploading(false);
       setImageLocalPath('');
 
       // Send message with content
-      if (messageToSend.text || imageUrl) {
-        const content = messageToSend.text || '';
+      if (messageToSend.text) {
+        const content = messageToSend.text;
         await sendMessage(content);
       }
     } catch (error) {
@@ -129,6 +166,13 @@ const ChatDetail: React.FC<Props> = ({navigation, route}) => {
   };
 
   useEffect(() => {
+    // Set header title for DM
+    if (isDM && otherUser) {
+      navigation.setOptions({
+        headerTitle: otherUser.name || 'Chat',
+      });
+    }
+
     navigation.setOptions({
       headerRight: () => (
         <TouchableOpacity onPress={() => setUserModal(true)}>
@@ -136,7 +180,7 @@ const ChatDetail: React.FC<Props> = ({navigation, route}) => {
         </TouchableOpacity>
       ),
     });
-  }, [navigation]);
+  }, [navigation, isDM, otherUser]);
 
   const renderChatFooter = useCallback(() => {
     if (imageLocalPath) {
@@ -164,7 +208,8 @@ const ChatDetail: React.FC<Props> = ({navigation, route}) => {
   if (!currentUserId) {
     return (
       <View style={styles.container}>
-        <SafeAreaView style={{flex: 1, justifyContent: 'center', alignItems: 'center'}}>
+        <SafeAreaView
+          style={{flex: 1, justifyContent: 'center', alignItems: 'center'}}>
           <Text style={{color: colors.white}}>Loading...</Text>
         </SafeAreaView>
       </View>
@@ -174,16 +219,38 @@ const ChatDetail: React.FC<Props> = ({navigation, route}) => {
   return (
     <View style={styles.container}>
       <SafeAreaView style={{flex: 1}}>
-        <ChatItem
-          title="Court Chat"
-          image="https://media.istockphoto.com/id/654106810/photo/man-playing-badminton.jpg?s=612x612&w=0&k=20&c=v1-sb6yaokafN99WmJRwboswcs6CtsK48KbU1FD24Bs="
-          body="Group chat for this court"
-          containerStyle={{
-            marginTop: 0,
-            backgroundColor: colors.black,
-            paddingHorizontal: 20,
-          }}
-        />
+        {/* Header - show different content for DM vs Court Chat */}
+        {isDM && otherUser ? (
+          <View style={styles.dmHeader}>
+            {otherUser.avatar_url ? (
+              <Image
+                source={{uri: otherUser.avatar_url}}
+                style={styles.dmAvatar}
+              />
+            ) : (
+              <View style={styles.dmAvatarPlaceholder}>
+                <Text style={styles.dmAvatarText}>
+                  {(otherUser.name || 'U')[0].toUpperCase()}
+                </Text>
+              </View>
+            )}
+            <View style={styles.dmHeaderText}>
+              <Text style={styles.dmName}>{otherUser.name || 'User'}</Text>
+              <Text style={styles.dmStatus}>Direct Message</Text>
+            </View>
+          </View>
+        ) : (
+          <ChatItem
+            title="Court Chat"
+            image="https://media.istockphoto.com/id/654106810/photo/man-playing-badminton.jpg?s=612x612&w=0&k=20&c=v1-sb6yaokafN99WmJRwboswcs6CtsK48KbU1FD24Bs="
+            body="Group chat for this court"
+            containerStyle={{
+              marginTop: 0,
+              backgroundColor: colors.black,
+              paddingHorizontal: 20,
+            }}
+          />
+        )}
 
         <GiftedChat
           inverted={giftedMessages.length !== 0}
@@ -192,29 +259,36 @@ const ChatDetail: React.FC<Props> = ({navigation, route}) => {
           user={{
             _id: currentUserId,
             name: user?.name || 'Me',
-            avatar: user?.photo?.url || 'https://randomuser.me/api/portraits/men/72.jpg',
+            avatar:
+              user?.photo?.url ||
+              'https://randomuser.me/api/portraits/men/72.jpg',
           }}
           alwaysShowSend
-          showUserAvatar={true}
-          renderAvatar={props => {
-            return (
-              <Image
-                source={{
-                  uri:
-                    typeof props?.currentMessage?.user?.avatar === 'string'
-                      ? props.currentMessage.user.avatar
-                      : 'https://randomuser.me/api/portraits/men/72.jpg',
-                }}
-                style={{
-                  width: 36,
-                  height: 36,
-                  borderRadius: 18,
-                }}
-              />
-            );
-          }}
-          renderUsernameOnMessage={true}
-          showAvatarForEveryMessage={true}
+          showUserAvatar={!isDM}
+          renderAvatar={
+            isDM
+              ? () => null
+              : props => {
+                  return (
+                    <Image
+                      source={{
+                        uri:
+                          typeof props?.currentMessage?.user?.avatar ===
+                          'string'
+                            ? props.currentMessage.user.avatar
+                            : 'https://randomuser.me/api/portraits/men/72.jpg',
+                      }}
+                      style={{
+                        width: 36,
+                        height: 36,
+                        borderRadius: 18,
+                      }}
+                    />
+                  );
+                }
+          }
+          renderUsernameOnMessage={!isDM}
+          showAvatarForEveryMessage={!isDM}
           renderAvatarOnTop={true}
           placeholder="Type a message ...."
           lightboxProps={{
@@ -326,6 +400,48 @@ const styles = StyleSheet.create({
   container: {
     backgroundColor: colors.blackLight,
     flex: 1,
+  },
+  dmHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.gray[100],
+  },
+  dmAvatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    marginRight: spacing.md,
+  },
+  dmAvatarPlaceholder: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    marginRight: spacing.md,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dmAvatarText: {
+    color: colors.black,
+    fontSize: 20,
+    fontFamily: fonts.ReadexSemiBold,
+  },
+  dmHeaderText: {
+    flex: 1,
+  },
+  dmName: {
+    color: colors.white,
+    fontSize: 18,
+    fontFamily: fonts.ReadexSemiBold,
+  },
+  dmStatus: {
+    color: colors.gray[400],
+    fontSize: 14,
+    fontFamily: fonts.ReadexRegular,
+    marginTop: 2,
   },
   leftTextStyle: {
     color: colors.white,

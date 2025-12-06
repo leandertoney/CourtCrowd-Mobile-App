@@ -1,11 +1,14 @@
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
 import React, {useState} from 'react';
-import {View, StyleSheet, Image, TouchableOpacity, Text} from 'react-native';
+import {View, StyleSheet, Image, TouchableOpacity} from 'react-native';
 import {HomeStackParamsList} from '../../../navigation/HomeNavigation';
 import {BottomTabParamlist} from '../../../navigation/BottomNavigation';
-import {colors} from '../../../utilities/theme';
+import {spacing} from '../../../utilities/theme';
+import {useColors} from '../../../contexts/ThemeContext';
 import {AddimgIcon} from '../../../assets/svg';
-import {AppButton, FormInput, MultilineInput} from '../../../components';
+import {FormInput, MultilineInput} from '../../../components';
+import Button from '../../../components/ui/Button';
+import Text from '../../../components/ui/Text';
 import {KeyboardAwareScrollView} from 'react-native-keyboard-aware-scroll-view';
 import * as ImagePicker from 'expo-image-picker';
 import {useFormik} from 'formik';
@@ -23,6 +26,7 @@ type Props = NativeStackScreenProps<
 >;
 
 const EditProfile: React.FC<Props> = ({navigation}) => {
+  const colors = useColors();
   const dispatch = useAppDispatch();
   const user = useAppSelector(state => state.auth.user);
 
@@ -124,8 +128,10 @@ const EditProfile: React.FC<Props> = ({navigation}) => {
   };
 
   return (
-    <KeyboardAwareScrollView contentContainerStyle={styles.contentContainer}>
-      <View style={styles.container}>
+    <KeyboardAwareScrollView
+      contentContainerStyle={[styles.contentContainer, {backgroundColor: colors.background}]}
+    >
+      <View style={[styles.container, {backgroundColor: colors.background}]}>
         <View style={[styles.imgStyle, {alignSelf: 'center'}]}>
           <Image
             source={{
@@ -180,7 +186,7 @@ const EditProfile: React.FC<Props> = ({navigation}) => {
           errorMessage={formik.touched.Dupr && formik.errors.Dupr}
         />
         <View>
-          <Text style={{color: '#fff', fontSize: 10, marginTop: 4}}>
+          <Text variant="caption" color="tertiary" style={{marginTop: 4}}>
             Accurate ratings provides better player experience within the app
           </Text>
         </View>
@@ -195,12 +201,14 @@ const EditProfile: React.FC<Props> = ({navigation}) => {
           errorMessage={formik.touched.bio && formik.errors.bio}
         />
       </View>
-      <AppButton
-        title="SAVE CHANGES"
-        customStyle={{marginBottom: 20, marginHorizontal: 20}}
-        onPress={formik.handleSubmit}
-        isLoading={isLoading}
-      />
+      <View style={styles.buttonContainer}>
+        <Button
+          title="SAVE CHANGES"
+          onPress={formik.handleSubmit}
+          loading={isLoading}
+          size="lg"
+        />
+      </View>
     </KeyboardAwareScrollView>
   );
 };
@@ -208,7 +216,6 @@ const EditProfile: React.FC<Props> = ({navigation}) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.black,
     paddingTop: 30,
     paddingHorizontal: 20,
   },
@@ -216,9 +223,12 @@ const styles = StyleSheet.create({
   contentContainer: {
     flexDirection: 'column',
     flexGrow: 1,
-    backgroundColor: colors.black,
   },
   addImg: {position: 'absolute', right: -20, bottom: -10},
+  buttonContainer: {
+    marginBottom: 20,
+    marginHorizontal: 20,
+  },
 });
 
 export default EditProfile;
